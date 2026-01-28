@@ -53,9 +53,8 @@ jobs:
         with:
           context: .
           tags: |
-            ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:latest
-            ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:${{ github.sha }}-${{ github.run_id }}
-            ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:$(date +%Y%m%d)
+            ghcr.io/axycri7/stapxs-qq-lite-x-docker:latest
+            ghcr.io/axycri7/stapxs-qq-lite-x-docker:${{ github.sha }}-${{ github.run_id }}
           push: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
