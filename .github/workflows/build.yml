@@ -1,0 +1,63 @@
+name: build
+
+on:
+  schedule:
+    - cron: '0 0 * * *' 
+  workflow_dispatch: 
+
+jobs:
+  build-and-push-docker:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+
+    steps:
+      - name: pull source
+        uses: actions/checkout@v4
+        with:
+          repository: Chzxxuanzheng/Stapxs-QQ-Lite-X
+          ref: test 
+
+      - name: configure node.js and pnpm
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+          registry-url: https://registry.npmjs.org/
+
+      - name: install dependencies
+        run: |
+          corepack enable pnpm
+          pnpm install --frozen-lockfile
+
+      - name: build vue app
+        run: pnpm build
+
+      - name: configure docker buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: login registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: build and push container image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          dockerfile: ./Dockerfile
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:latest
+            ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:${{ github.sha }}-${{ github.run_id }}
+            ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:$(date +%Y%m%d)
+          push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: logout registry
+        if: always()
+        run: docker logout ghcr.io
