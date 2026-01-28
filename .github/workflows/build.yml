@@ -26,6 +26,11 @@ jobs:
           node-version: 20
           cache: 'pnpm'
           registry-url: https://registry.npmjs.org/
+        
+      - name: configure pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8   
 
       - name: enable Corepack and prepare pnpm
         run: |
