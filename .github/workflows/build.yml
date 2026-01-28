@@ -49,10 +49,9 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: build and push container image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
-          dockerfile: ./Dockerfile
           tags: |
             ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:latest
             ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:${{ github.sha }}-${{ github.run_id }}
