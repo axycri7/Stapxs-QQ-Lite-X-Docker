@@ -22,6 +22,9 @@ jobs:
           submodules: recursive
           fetch-depth: 0
         
+      - name: Set short sha
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
         
@@ -57,7 +60,7 @@ jobs:
           context: .
           tags: |
             ghcr.io/axycri7/stapxs-qq-lite-x-docker:latest
-            ghcr.io/axycri7/stapxs-qq-lite-x-docker:${{ github.sha }}-${{ github.run_id }}
+            ghcr.io/axycri7/stapxs-qq-lite-x-docker:sha-${{ env.SHORT_SHA }}
           push: true
           platforms: linux/amd64,linux/arm64
           cache-from: type=gha
