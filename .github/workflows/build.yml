@@ -19,6 +19,8 @@ jobs:
         with:
           repository: Chzxxuanzheng/Stapxs-QQ-Lite-X
           ref: test 
+          submodules: recursive
+          fetch-depth: 0
         
       - name: configure pnpm
         uses: pnpm/action-setup@v4
