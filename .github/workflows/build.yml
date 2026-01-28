@@ -20,16 +20,21 @@ jobs:
           repository: Chzxxuanzheng/Stapxs-QQ-Lite-X
           ref: test 
 
-      - name: configure node.js and pnpm
+      - name: configure node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'pnpm'
           registry-url: https://registry.npmjs.org/
 
+      - name: enable Corepack and prepare pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@latest --activate
+          pnpm -v
+
       - name: install dependencies
         run: |
-          corepack enable pnpm
           pnpm install --frozen-lockfile
 
       - name: build vue app
