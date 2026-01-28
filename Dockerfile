@@ -1,4 +1,4 @@
-FROM nginx:stable-alpine3.23-slim
+FROM nginx:stable-alpine-slim
 
 LABEL maintainer="axycrio"
 LABEL description="Docker image for Chzxxuanzheng/Stapxs-QQ-Lite-X"

@@ -22,6 +22,9 @@ jobs:
           submodules: recursive
           fetch-depth: 0
         
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        
       - name: configure pnpm
         uses: pnpm/action-setup@v4
 
@@ -56,6 +59,7 @@ jobs:
             ghcr.io/axycri7/stapxs-qq-lite-x-docker:latest
             ghcr.io/axycri7/stapxs-qq-lite-x-docker:${{ github.sha }}-${{ github.run_id }}
           push: true
+          platforms: linux/amd64,linux/arm64
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
