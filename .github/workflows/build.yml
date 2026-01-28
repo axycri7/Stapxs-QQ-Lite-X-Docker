@@ -22,8 +22,6 @@ jobs:
         
       - name: configure pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 10 
 
       - name: enable Corepack and prepare pnpm
         run: |
