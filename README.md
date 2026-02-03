@@ -1,4 +1,4 @@
-A Docker image for [Chzxxuanzheng/Stapxs-QQ-Lite-X](https://github.com/Chzxxuanzheng/Stapxs-QQ-Lite-X) with automatic builds via GitHub Actions.
+A unofficial Docker image for [Chzxxuanzheng/Stapxs-QQ-Lite-X](https://github.com/Chzxxuanzheng/Stapxs-QQ-Lite-X) with automatic builds via GitHub Actions.
 
 ### Manual build
 
