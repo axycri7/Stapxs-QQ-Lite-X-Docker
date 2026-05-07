@@ -31,7 +31,7 @@ jobs:
       upstream_sha: ${{ steps.upstream.outputs.sha }}
       upstream_short_sha: ${{ steps.upstream.outputs.short_sha }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Resolve upstream SHA
         id: upstream
@@ -72,7 +72,7 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -126,7 +126,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Commit new upstream SHA
         env:
