@@ -37,7 +37,7 @@ jobs:
 
       - name: Check if upstream changed
         run: |
-          if [ "$CURRENT_SHA" != "$LAST_SHA" ] || [ -z "$LAST_SHA" ]; then
+          if [ "$CURRENT_SHA" != "$LAST_SHA" ] || [ -z "$LAST_SHA" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "BUILD=true" >> $GITHUB_ENV
           else
             echo "BUILD=false" >> $GITHUB_ENV
