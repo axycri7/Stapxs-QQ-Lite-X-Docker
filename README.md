@@ -1,4 +1,4 @@
-Unofficial Docker image for [Chzxxuanzheng/Stapxs-QQ-Lite-X](https://github.com/Chzxxuanzheng/Stapxs-QQ-Lite-X) with automatic builds via GitHub Actions.
+Unofficial Docker image for [Chzxxuanzheng/Stapxs-QQ-Lite-X](https://github.com/Chzxxuanzheng/Stapxs-QQ-Lite-X) with automatic builds from upstream release tags via GitHub Actions.
 
 ## Quick Start
 
@@ -51,3 +51,22 @@ docker run -d -p 80:80 -p 443:443 \
   --name stapxs-qq-lite-x \
   stapxs-qq-lite-x:latest
 ```
+
+## Upstream Project
+
+This repository provides an unofficial Docker image for:
+
+https://github.com/Chzxxuanzheng/Stapxs-QQ-Lite-X
+
+All credits for the application itself belong to the upstream project and its contributors.
+
+## License
+
+The upstream project is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0).
+
+This repository contains Docker build scripts and GitHub Actions workflows for automatically building and publishing container images.
+
+Any modifications made for containerization or deployment are also released under AGPL-3.0.
+
+Corresponding source code for the application is available at:
+https://github.com/Chzxxuanzheng/Stapxs-QQ-Lite-X

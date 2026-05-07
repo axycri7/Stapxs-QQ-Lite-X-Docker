@@ -1,23 +1,30 @@
 FROM nginx:1.27-alpine-slim
 
-LABEL maintainer="axycrio"
-LABEL description="Docker image for Chzxxuanzheng/Stapxs-QQ-Lite-X"
-LABEL version="1.0"
-LABEL security="scan-required"
+LABEL org.opencontainers.image.title="Stapxs-QQ-Lite-X Docker"
+LABEL org.opencontainers.image.description="Unofficial Docker image for Chzxxuanzheng/Stapxs-QQ-Lite-X"
+LABEL org.opencontainers.image.source="https://github.com/axycri7/Stapxs-QQ-Lite-X-Docker"
+LABEL org.opencontainers.image.url="https://github.com/axycri7/Stapxs-QQ-Lite-X-Docker"
+LABEL org.opencontainers.image.documentation="https://github.com/axycri7/Stapxs-QQ-Lite-X-Docker"
+LABEL org.opencontainers.image.licenses="AGPL-3.0"
+LABEL org.opencontainers.image.authors="axycrio"
 
-RUN apk add --no-cache openssl coreutils && \
+RUN apk add --no-cache \
+    openssl \
+    coreutils \
+    wget && \
     rm -rf /etc/nginx/conf.d/default.conf
 
 COPY ./nginx/conf.d/default.conf /etc/nginx/conf.d/
+COPY entrypoint.sh /entrypoint.sh
+COPY LICENSE /LICENSE
 
-# Create default HTML content for SSL testing
+# Default HTML page for SSL testing / fallback
 RUN mkdir -p /usr/share/nginx/html && \
     echo '<!DOCTYPE html><html><head><title>SSL Test</title></head><body><h1>SSL Certificate Test Page</h1><p>This is a test page for SSL certificate renewal.</p></body></html>' > /usr/share/nginx/html/index.html
 
-# Copy dist if it exists (for production builds)
-RUN if [ -d ./dist ]; then cp -r ./dist/* /usr/share/nginx/html/; fi
+# Copy frontend build artifacts if provided
+COPY dist/ /usr/share/nginx/html/
 
-COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh && \
     chmod 644 /etc/nginx/conf.d/default.conf
 
