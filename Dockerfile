@@ -16,7 +16,6 @@ RUN apk add --no-cache \
 
 COPY ./nginx/conf.d/default.conf /etc/nginx/conf.d/
 COPY entrypoint.sh /entrypoint.sh
-COPY LICENSE /LICENSE
 
 # Default HTML page for SSL testing / fallback
 RUN mkdir -p /usr/share/nginx/html && \
