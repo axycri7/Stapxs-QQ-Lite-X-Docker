@@ -47,6 +47,7 @@ jobs:
           ref: test 
           submodules: recursive
           fetch-depth: 0
+          path: source
         
       - name: Set short sha
         if: env.BUILD == 'true'
@@ -70,11 +71,14 @@ jobs:
       - name: install dependencies
         if: env.BUILD == 'true'
         run: |
+          cd source
           pnpm install --frozen-lockfile
 
       - name: build vue app
         if: env.BUILD == 'true'
-        run: pnpm build
+        run: |
+          cd source
+          pnpm build
 
       - name: configure docker buildx
         if: env.BUILD == 'true'
@@ -92,7 +96,7 @@ jobs:
         if: env.BUILD == 'true'
         uses: docker/build-push-action@v6
         with:
-          context: .
+          context: source
           tags: |
             ghcr.io/axycri7/stapxs-qq-lite-x-docker:latest
             ghcr.io/axycri7/stapxs-qq-lite-x-docker:sha-${{ env.SHORT_SHA }}
