@@ -134,10 +134,10 @@ jobs:
         run: |
           cd .this
           docker pull ghcr.io/axycri7/stapxs-qq-lite-x-docker:latest
-          docker-compose up -d
+          docker compose up -d
           sleep 10
           bash ./test-ssl-renewal.sh stapxs-qq-lite-x
-          docker-compose down
+          docker compose down
 
       - name: Update last upstream SHA
         if: env.BUILD == 'true'
