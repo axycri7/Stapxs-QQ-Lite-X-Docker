@@ -60,6 +60,8 @@ jobs:
       - name: configure pnpm
         if: env.BUILD == 'true'
         uses: pnpm/action-setup@v4
+        with:
+          version: latest
 
       - name: enable Corepack and prepare pnpm
         if: env.BUILD == 'true'
