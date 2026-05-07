@@ -10,7 +10,12 @@ RUN apk add --no-cache openssl coreutils && \
 
 COPY ./nginx/conf.d/default.conf /etc/nginx/conf.d/
 
-COPY ./dist /usr/share/nginx/html
+# Create default HTML content for SSL testing
+RUN mkdir -p /usr/share/nginx/html && \
+    echo '<!DOCTYPE html><html><head><title>SSL Test</title></head><body><h1>SSL Certificate Test Page</h1><p>This is a test page for SSL certificate renewal.</p></body></html>' > /usr/share/nginx/html/index.html
+
+# Copy dist if it exists (for production builds)
+RUN if [ -d ./dist ]; then cp -r ./dist/* /usr/share/nginx/html/; fi
 
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh && \
