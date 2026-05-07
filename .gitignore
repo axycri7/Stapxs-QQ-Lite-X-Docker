@@ -40,14 +40,28 @@ pnpm-debug.log*
 
 .env
 .env.*
+.env.local
+.env.*.local
 
 docker-compose.override.yml
 .dockerignore
 
 *.sh~
 
-# Misc
+*.crt
+*.key
+*.pem
+
+*.pid
+*.pid.lock
+
 *.swp
+*.swo
+*~
+.DS_Store
+
+.trivy-cache/
+.snyk/
 *.swo
 *.DS_Store
 .idea/

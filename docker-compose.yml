@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  stapxs-qq-lite-x:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: stapxs-qq-lite-x
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      # 持久化SSL证书（可选）
+      # 这样即使容器重启，也能保持相同的证书
+      - ssl-certs:/etc/ssl/certs
+      - ssl-private:/etc/ssl/private
+    environment:
+      # 可选：可通过环境变量进行配置（需要修改entrypoint.sh支持）
+      - TZ=Asia/Shanghai
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - default
+    # 日志配置
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  ssl-certs:
+    driver: local
+  ssl-private:
+    driver: local
+
+networks:
+  default:
+    driver: bridge
