@@ -10,17 +10,36 @@ CONTAINER_NAME="${1:-stapxs-qq-lite-x}"
 SSL_CERT_PATH="/etc/ssl/certs/nginx-selfsigned.crt"
 SSL_KEY_PATH="/etc/ssl/private/nginx-selfsigned.key"
 
-echo "=========================================="
-echo "SSL Certificate Auto-Renewal Test Suite"
-echo "=========================================="
-echo ""
-
 # Check if container is running
-if ! docker ps | grep -q \"$CONTAINER_NAME\"; then
-    echo \"❌ Error: Container '$CONTAINER_NAME' is not running\"
-    echo \"   Start it with: docker-compose up -d\"
+check_container_running() {
+    local name="$1"
+
+    if ! command -v docker >/dev/null 2>&1; then
+        echo "❌ Error: Docker CLI is not installed or not available in PATH"
+        exit 1
+    fi
+
+    if docker ps --filter "name=^${name}$" --format '{{.Names}}' | grep -xq "$name"; then
+        return 0
+    fi
+
+    if docker ps -a --filter "name=^${name}$" --format '{{.Names}}' | grep -xq "$name"; then
+        echo "⚠ Container '$name' exists but is not running. Attempting to start it..."
+        docker start "$name" >/dev/null
+        sleep 2
+        if docker ps --filter "name=^${name}$" --format '{{.Names}}' | grep -xq "$name"; then
+            return 0
+        fi
+        echo "❌ Error: Container '$name' exists but failed to start"
+        exit 1
+    fi
+
+    echo "❌ Error: Container '$name' is not running"
+    echo "   Start it with: docker-compose up -d"
     exit 1
-fi
+}
+
+check_container_running "$CONTAINER_NAME"
 
 echo \"✓ Container '$CONTAINER_NAME' is running\"
 echo ""
@@ -103,16 +122,4 @@ else
 fi
 echo \"\"
 
-echo \"=========================================="
-echo \"✓ All tests completed successfully!\"
-echo \"=========================================="
-echo \"\"
-echo \"Next steps:\"
-echo \"1. Monitor the container logs for certificate renewal:\"
-echo \"   docker logs -f $CONTAINER_NAME\"
-echo \"\"
-echo \"2. To manually test certificate renewal (for development):\"
-echo \"   # Set cert expiration to 5 days, then restart\"
-echo \"   # This will trigger automatic renewal on next check\"
-echo \"\"
-echo \"3. For more information, see SSL_CERTIFICATE_AUTO_RENEWAL.md\"
+echo \"✓ All SSL tests completed successfully!\"
