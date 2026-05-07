@@ -1,8 +1,8 @@
-Unofficial Docker image for [Chzxxuanzheng/Stapxs-QQ-Lite-X](https://github.com/Chzxxuanzheng/Stapxs-QQ-Lite-X) with automatic builds from upstream release tags via GitHub Actions.
+Unofficial Docker image for [Chzxxuanzheng/Stapxs-QQ-Lite-X](https://github.com/Chzxxuanzheng/Stapxs-QQ-Lite-X) with automatic builds from upstream via GitHub Actions.
 
 ## Quick Start
 
-### Using Pre-built Image
+### Using the pre-built image
 
 ```bash
 docker run -d -p 80:80 -p 443:443 \
@@ -14,59 +14,83 @@ docker run -d -p 80:80 -p 443:443 \
 
 Or with Docker Compose:
 
-```yaml
-# docker-compose.yml
-services:
-  stapxs-qq-lite-x:
-    image: ghcr.io/axycri7/stapxs-qq-lite-x-docker:latest
-    container_name: stapxs-qq-lite-x
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ssl-certs:/etc/ssl/certs
-      - ssl-private:/etc/ssl/private
-    restart: unless-stopped
-
-volumes:
-  ssl-certs:
-  ssl-private:
-```
-
-Then run:
-
 ```bash
-docker-compose up -d
+curl -fsSL https://raw.githubusercontent.com/axycri7/Stapxs-QQ-Lite-X-Docker/main/docker-compose.yml -o docker-compose.yml
+curl -fsSL https://raw.githubusercontent.com/axycri7/Stapxs-QQ-Lite-X-Docker/main/.env.example -o .env
+docker compose up -d
 ```
 
-### Manual Build
+### Building from source
+
+The Dockerfile clones and builds upstream inside a multi-stage build, so no pre-checkout or local Node/pnpm is required:
 
 ```bash
 git clone https://github.com/axycri7/Stapxs-QQ-Lite-X-Docker
 cd Stapxs-QQ-Lite-X-Docker
 docker build -t stapxs-qq-lite-x:latest .
-docker run -d -p 80:80 -p 443:443 \
-  -v ssl-certs:/etc/ssl/certs \
-  -v ssl-private:/etc/ssl/private \
-  --name stapxs-qq-lite-x \
-  stapxs-qq-lite-x:latest
+docker run -d -p 80:80 -p 443:443 --name stapxs-qq-lite-x stapxs-qq-lite-x:latest
 ```
 
-## Upstream Project
+Build arguments:
 
-This repository provides an unofficial Docker image for:
+| Arg             | Default                                                  | Purpose                                |
+| --------------- | -------------------------------------------------------- | -------------------------------------- |
+| `UPSTREAM_REPO` | `https://github.com/Chzxxuanzheng/Stapxs-QQ-Lite-X.git`  | Source repo to clone                   |
+| `UPSTREAM_REF`  | `test`                                                   | Branch or tag when `UPSTREAM_SHA` empty |
+| `UPSTREAM_SHA`  | *(unset)*                                                | Pin to an exact commit (reproducible)  |
+| `NODE_VERSION`  | `20-alpine`                                              | Node base image for the builder stage  |
+| `PNPM_VERSION`  | `10.32.1`                                                | Matches upstream `packageManager`      |
 
-https://github.com/Chzxxuanzheng/Stapxs-QQ-Lite-X
+Example:
 
-All credits for the application itself belong to the upstream project and its contributors.
+```bash
+docker build \
+  --build-arg UPSTREAM_REF=main \
+  --build-arg UPSTREAM_SHA=<40-char-sha> \
+  -t stapxs-qq-lite-x:pinned .
+```
+
+## Configuration
+
+All runtime options are environment variables consumed by `entrypoint.sh`. Defaults are safe for local use; see `.env.example` for the full list.
+
+| Variable                     | Default                                                    | Notes                          |
+| ---------------------------- | ---------------------------------------------------------- | ------------------------------ |
+| `SSL_VALIDITY_DAYS`          | `90`                                                       | Lifetime of generated cert     |
+| `SSL_RENEWAL_THRESHOLD_DAYS` | `7`                                                        | Renew when fewer days remain   |
+| `SSL_CHECK_INTERVAL_HOURS`   | `24`                                                       | Monitor polling interval       |
+| `SSL_KEY_SIZE`               | `4096`                                                     | RSA key size                   |
+| `SSL_SUBJECT`                | `/C=US/ST=State/L=City/O=Organization/CN=localhost`        | Certificate DN                 |
+| `SSL_CERT`, `SSL_KEY`        | `/etc/ssl/{certs,private}/nginx-selfsigned.*`              | Cert/key paths in the image    |
+
+For production use, mount your own certificate into `SSL_CERT` / `SSL_KEY` and the auto-renewal monitor will leave it alone until it is within the threshold window.
+
+## Health check
+
+The image exposes an unauthenticated `/health` endpoint on both HTTP and HTTPS:
+
+```bash
+curl -k https://localhost/health   # -> healthy
+```
+
+`docker inspect --format='{{.State.Health.Status}}' stapxs-qq-lite-x` reflects the same probe.
+
+## Smoke test
+
+After `docker compose up -d`, run:
+
+```bash
+./test-ssl-renewal.sh stapxs-qq-lite-x
+```
+
+This verifies certificate presence, nginx config validity, the HTTPS endpoint, and the renewal monitor.
+
+## Upstream project
+
+All credit for the application itself belongs to [Chzxxuanzheng/Stapxs-QQ-Lite-X](https://github.com/Chzxxuanzheng/Stapxs-QQ-Lite-X) and its contributors.
 
 ## License
 
-The upstream project is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0).
+The upstream project is licensed under AGPL-3.0. This repository's Docker build scripts and workflows are also released under AGPL-3.0.
 
-This repository contains Docker build scripts and GitHub Actions workflows for automatically building and publishing container images.
-
-Any modifications made for containerization or deployment are also released under AGPL-3.0.
-
-Corresponding source code for the application is available at:
-https://github.com/Chzxxuanzheng/Stapxs-QQ-Lite-X
+Corresponding source for the application is at https://github.com/Chzxxuanzheng/Stapxs-QQ-Lite-X.

@@ -1,125 +1,80 @@
-#!/bin/bash
-
-# SSL Certificate Auto-Renewal Testing Script
-# This script helps verify that the SSL certificate auto-renewal feature works correctly
+#!/usr/bin/env bash
+# SSL certificate smoke test for the nginx container.
 # Usage: ./test-ssl-renewal.sh [container-name]
-
-set -e
+set -euo pipefail
 
 CONTAINER_NAME="${1:-stapxs-qq-lite-x}"
 SSL_CERT_PATH="/etc/ssl/certs/nginx-selfsigned.crt"
 SSL_KEY_PATH="/etc/ssl/private/nginx-selfsigned.key"
 
-# Check if container is running
-check_container_running() {
-    local name="$1"
+pass() { printf '  \033[32mPASS\033[0m  %s\n' "$*"; }
+fail() { printf '  \033[31mFAIL\033[0m  %s\n' "$*" >&2; exit 1; }
+warn() { printf '  \033[33mWARN\033[0m  %s\n' "$*"; }
+step() { printf '\n\033[1m%s\033[0m\n' "$*"; }
 
-    if ! command -v docker >/dev/null 2>&1; then
-        echo "❌ Error: Docker CLI is not installed or not available in PATH"
-        exit 1
-    fi
+command -v docker >/dev/null 2>&1 || fail "docker CLI not found on PATH"
 
-    if docker ps --filter "name=^${name}$" --format '{{.Names}}' | grep -xq "$name"; then
+ensure_running() {
+    local name=$1
+    if docker ps --filter "name=^${name}$" --format '{{.Names}}' | grep -qx "$name"; then
         return 0
     fi
-
-    if docker ps -a --filter "name=^${name}$" --format '{{.Names}}' | grep -xq "$name"; then
-        echo "⚠ Container '$name' exists but is not running. Attempting to start it..."
+    if docker ps -a --filter "name=^${name}$" --format '{{.Names}}' | grep -qx "$name"; then
+        warn "Container '$name' exists but is stopped; starting..."
         docker start "$name" >/dev/null
         sleep 2
-        if docker ps --filter "name=^${name}$" --format '{{.Names}}' | grep -xq "$name"; then
-            return 0
-        fi
-        echo "❌ Error: Container '$name' exists but failed to start"
-        exit 1
+        docker ps --filter "name=^${name}$" --format '{{.Names}}' | grep -qx "$name" \
+            || fail "Container '$name' failed to start"
+        return 0
     fi
-
-    echo "❌ Error: Container '$name' is not running"
-    echo "   Start it with: docker-compose up -d"
-    exit 1
+    fail "Container '$name' not found (hint: docker compose up -d)"
 }
 
-check_container_running "$CONTAINER_NAME"
+in_container() { docker exec "$CONTAINER_NAME" "$@"; }
 
-echo \"✓ Container '$CONTAINER_NAME' is running\"
-echo ""
+ensure_running "$CONTAINER_NAME"
+pass "container '$CONTAINER_NAME' running"
 
-# Test 1: Check certificate existence
-echo \"[Test 1] Checking certificate files...\"
-if docker exec \"$CONTAINER_NAME\" test -f \"$SSL_CERT_PATH\"; then
-    echo \"✓ Certificate file exists: $SSL_CERT_PATH\"
+step "Certificate files"
+in_container test -f "$SSL_CERT_PATH" && pass "cert present at $SSL_CERT_PATH" || fail "cert missing"
+in_container test -f "$SSL_KEY_PATH"  && pass "key present at $SSL_KEY_PATH"  || fail "key missing"
+
+step "Certificate contents"
+cert_info=$(in_container openssl x509 -in "$SSL_CERT_PATH" -noout -subject -enddate)
+subject=$(printf '%s\n' "$cert_info" | awk -F'subject= ?' '/^subject/{print $2}')
+enddate=$(printf '%s\n' "$cert_info" | awk -F'notAfter= ?' '/^notAfter/{print $2}')
+[ -n "$subject" ] && pass "subject: $subject" || fail "unreadable subject"
+[ -n "$enddate" ] && pass "expires: $enddate" || fail "unreadable enddate"
+
+step "Nginx configuration"
+if in_container nginx -t >/dev/null 2>&1; then
+    pass "nginx -t ok"
 else
-    echo \"❌ Certificate file not found: $SSL_CERT_PATH\"
-    exit 1
+    in_container nginx -t || true
+    fail "nginx configuration invalid"
 fi
 
-if docker exec \"$CONTAINER_NAME\" test -f \"$SSL_KEY_PATH\"; then
-    echo \"✓ Private key file exists: $SSL_KEY_PATH\"
+step "HTTPS endpoint"
+if in_container wget -q --spider --no-check-certificate https://localhost/health; then
+    pass "https://localhost/health reachable"
 else
-    echo \"❌ Private key file not found: $SSL_KEY_PATH\"
-    exit 1
+    warn "HTTPS health probe failed (may be expected until content is deployed)"
 fi
-echo \"\"
 
-# Test 2: Check certificate validity
-echo \"[Test 2] Checking certificate validity...\"
-CERT_INFO=$(docker exec \"$CONTAINER_NAME\" openssl x509 -in \"$SSL_CERT_PATH\" -noout -text)
-
-if echo \"$CERT_INFO\" | grep -q \"Subject:\"; then
-    echo \"✓ Certificate is valid and readable\"
-    echo \"  Subject: $(echo \"$CERT_INFO\" | grep -A 1 'Subject:' | head -1 | sed 's/.*Subject: //')\"
+step "Certificate renewal monitor"
+if in_container sh -c "ps -o pid,args 2>/dev/null || ps w" | grep -E 'entrypoint\.sh|monitor_certificate|sleep' | grep -v grep >/dev/null; then
+    pass "monitor process running"
 else
-    echo \"❌ Certificate validation failed\"
-    exit 1
+    warn "monitor process not visibly running"
 fi
-echo \"\"
 
-# Test 3: Check certificate expiration
-echo \"[Test 3] Checking certificate expiration date...\"
-EXPIRATION_DATE=$(docker exec \"$CONTAINER_NAME\" openssl x509 -in \"$SSL_CERT_PATH\" -noout -enddate)
-echo \"✓ $EXPIRATION_DATE\"
-echo \"\"
-
-# Test 4: Check nginx is running and using the certificate
-echo \"[Test 4] Checking nginx configuration...\"
-if docker exec \"$CONTAINER_NAME\" nginx -t 2>&1 | grep -q \"successful\"; then
-    echo \"✓ Nginx configuration is valid\"
+step "Recent container errors"
+errors=$(docker logs --tail 100 "$CONTAINER_NAME" 2>&1 | grep -iE 'error|fail' || true)
+if [ -z "$errors" ]; then
+    pass "no errors in recent logs"
 else
-    echo \"❌ Nginx configuration validation failed\"
-    docker exec \"$CONTAINER_NAME\" nginx -t
-    exit 1
+    warn "found log lines mentioning error/fail:"
+    printf '%s\n' "$errors" | head -5 | sed 's/^/    /'
 fi
-echo \"\"
 
-# Test 5: Check HTTPS connectivity
-echo \"[Test 5] Testing HTTPS connectivity...\"
-if docker exec \"$CONTAINER_NAME\" wget -q --spider --no-check-certificate https://localhost 2>/dev/null || \
-   docker exec \"$CONTAINER_NAME\" curl -k -s https://localhost > /dev/null 2>&1; then
-    echo \"✓ HTTPS endpoint is accessible\"
-else
-    echo \"⚠ Warning: HTTPS connectivity check failed (this may be expected if no content is deployed)\"
-fi
-echo \"\"
-
-# Test 6: Check monitoring process
-echo \"[Test 6] Checking certificate monitoring process...\"
-if docker exec \"$CONTAINER_NAME\" ps aux | grep -v grep | grep monitor_certificate > /dev/null 2>&1 || \
-   docker exec \"$CONTAINER_NAME\" ps aux | grep sleep | grep -v grep > /dev/null 2>&1; then
-    echo \"✓ Background monitoring process is running\"
-else
-    echo \"⚠ Warning: Background monitoring process not clearly visible (may still be active)\"
-fi
-echo \"\"
-
-# Test 7: Check logs for errors
-echo \"[Test 7] Checking container logs for errors...\"
-RECENT_ERRORS=$(docker logs --tail 50 \"$CONTAINER_NAME\" 2>&1 | grep -i \"error\" || true)
-if [ -z \"$RECENT_ERRORS\" ]; then
-    echo \"✓ No errors found in recent logs\"
-else
-    echo \"⚠ Found these log entries mentioning 'error':(may be informational)\"
-    echo \"$RECENT_ERRORS\" | head -5
-fi
-echo \"\"
-
-echo \"✓ All SSL tests completed successfully!\"
+printf '\n\033[32mAll SSL smoke tests completed\033[0m\n'

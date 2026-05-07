@@ -2,168 +2,153 @@ name: build
 
 on:
   schedule:
-    - cron: '0 0 * * *' 
-  workflow_dispatch: 
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+    inputs:
+      force_rebuild:
+        description: Force rebuild even if upstream is unchanged
+        type: boolean
+        default: false
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  UPSTREAM_REPO: Chzxxuanzheng/Stapxs-QQ-Lite-X
+  UPSTREAM_REF: test
+  IMAGE: ghcr.io/axycri7/stapxs-qq-lite-x-docker
 
 jobs:
-  build-and-push-docker:
+  check-upstream:
+    name: Check upstream
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      packages: write
-      id-token: write
-
+    timeout-minutes: 5
+    outputs:
+      should_build: ${{ steps.decide.outputs.should_build }}
+      upstream_sha: ${{ steps.upstream.outputs.sha }}
+      upstream_short_sha: ${{ steps.upstream.outputs.short_sha }}
     steps:
-      - name: Checkout this repo
-        uses: actions/checkout@v4
-        with:
-          path: .this
-          fetch-depth: 1
+      - uses: actions/checkout@v4
 
-      - name: Get last upstream SHA
+      - name: Resolve upstream SHA
+        id: upstream
         run: |
-          if [ -f .this/.last_upstream_sha ]; then
-            echo "LAST_SHA=$(cat .this/.last_upstream_sha)" >> $GITHUB_ENV
-          fi
-
-      - name: Get current upstream SHA
-        run: |
-          CURRENT_SHA=$(git ls-remote --heads https://github.com/Chzxxuanzheng/Stapxs-QQ-Lite-X.git test | head -1 | cut -f1)
-          if [ -z "$CURRENT_SHA" ]; then
-            echo "Error: Could not fetch upstream SHA" >&2
+          set -euo pipefail
+          sha=$(git ls-remote "https://github.com/${UPSTREAM_REPO}.git" "refs/heads/${UPSTREAM_REF}" | cut -f1)
+          if [ -z "$sha" ]; then
+            echo "::error::Could not fetch upstream SHA for ${UPSTREAM_REPO}@${UPSTREAM_REF}"
             exit 1
           fi
-          echo "CURRENT_SHA=$CURRENT_SHA" >> $GITHUB_ENV
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "short_sha=${sha:0:7}" >> "$GITHUB_OUTPUT"
 
-      - name: Check if upstream changed
+      - name: Decide whether to build
+        id: decide
+        env:
+          UPSTREAM_SHA: ${{ steps.upstream.outputs.sha }}
+          FORCE_REBUILD: ${{ inputs.force_rebuild }}
         run: |
-          if [ "$CURRENT_SHA" != "$LAST_SHA" ] || [ -z "$LAST_SHA" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "BUILD=true" >> $GITHUB_ENV
+          set -euo pipefail
+          last_sha=""
+          [ -f .last_upstream_sha ] && last_sha=$(tr -d '[:space:]' < .last_upstream_sha)
+          if [ "${FORCE_REBUILD:-false}" = "true" ] || [ "$last_sha" != "$UPSTREAM_SHA" ]; then
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Upstream $UPSTREAM_SHA differs from last ($last_sha); building."
           else
-            echo "BUILD=false" >> $GITHUB_ENV
-            echo "Upstream has not changed since last build. Skipping build."
+            echo "should_build=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Upstream unchanged at $last_sha; skipping build."
           fi
 
-      - name: pull source
-        if: env.BUILD == 'true'
-        uses: actions/checkout@v4
-        with:
-          repository: Chzxxuanzheng/Stapxs-QQ-Lite-X
-          ref: test 
-          submodules: recursive
-          fetch-depth: 0
-          path: source
-        
-      - name: Set short sha
-        if: env.BUILD == 'true'
-        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
+  build:
+    name: Build and push image
+    needs: check-upstream
+    if: needs.check-upstream.outputs.should_build == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
 
       - name: Set up QEMU
-        if: env.BUILD == 'true'
         uses: docker/setup-qemu-action@v3
-        
-      - name: Set up Node.js
-        if: env.BUILD == 'true'
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
 
-      - name: configure pnpm
-        if: env.BUILD == 'true'
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
-      - name: enable Corepack and prepare pnpm
-        if: env.BUILD == 'true'
-        run: |
-          corepack enable
-          corepack prepare pnpm@latest --activate
-          pnpm -v
-
-      - name: install dependencies
-        if: env.BUILD == 'true'
-        run: |
-          cd source
-          pnpm install --frozen-lockfile
-
-      - name: build vue app
-        if: env.BUILD == 'true'
-        run: |
-          cd source
-          pnpm build
-          
-      - name: copy dist to build context
-        if: env.BUILD == 'true'
-        run: |
-          cp -r source/dist ./dist
-          cp .this/Dockerfile ./Dockerfile
-          cp .this/entrypoint.sh ./entrypoint.sh
-          chmod +x ./entrypoint.sh
-          cp -r .this/nginx ./nginx
-
-      - name: configure docker buildx
-        if: env.BUILD == 'true'
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to GitHub Container Registry
-        if: env.BUILD == 'true'
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata
-        if: env.BUILD == 'true'
+      - name: Extract image metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: |
-            ghcr.io/axycri7/stapxs-qq-lite-x-docker
+          images: ${{ env.IMAGE }}
           tags: |
             type=raw,value=latest
-            type=sha,prefix={{branch}}-
+            type=raw,value=upstream-${{ needs.check-upstream.outputs.upstream_short_sha }}
+          labels: |
+            org.opencontainers.image.revision=${{ needs.check-upstream.outputs.upstream_sha }}
+            org.opencontainers.image.source=https://github.com/${{ env.UPSTREAM_REPO }}
 
-      - name: build and push container image
-        if: env.BUILD == 'true'
+      - name: Build and push
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
-          tags: |
-            ghcr.io/axycri7/stapxs-qq-lite-x-docker:latest
-            ghcr.io/axycri7/stapxs-qq-lite-x-docker:sha-${{ env.SHORT_SHA }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            UPSTREAM_REPO=https://github.com/${{ env.UPSTREAM_REPO }}.git
+            UPSTREAM_REF=${{ env.UPSTREAM_REF }}
+            UPSTREAM_SHA=${{ needs.check-upstream.outputs.upstream_sha }}
           push: true
           platforms: linux/amd64,linux/arm64
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          provenance: true
+          sbom: true
 
-      - name: Test SSL certificate renewal
-        if: env.BUILD == 'true'
-        continue-on-error: true
-        run: |
-          cd .this
-          docker compose up -d
-          sleep 15
-          bash ./test-ssl-renewal.sh stapxs-qq-lite-x || true
-          docker compose down
+  update-sha:
+    name: Record upstream SHA
+    needs: [check-upstream, build]
+    if: needs.check-upstream.outputs.should_build == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
 
-      - name: Update last upstream SHA
-        if: env.BUILD == 'true'
+      - name: Commit new upstream SHA
+        env:
+          UPSTREAM_SHA: ${{ needs.check-upstream.outputs.upstream_sha }}
+          UPSTREAM_SHORT_SHA: ${{ needs.check-upstream.outputs.upstream_short_sha }}
         run: |
-          cd .this
-          echo $CURRENT_SHA > .last_upstream_sha
+          set -euo pipefail
+          echo "$UPSTREAM_SHA" > .last_upstream_sha
           git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add .last_upstream_sha
           if git diff --staged --quiet; then
             echo "No changes to commit"
-          else
-            git commit -m "Update last upstream SHA to $CURRENT_SHA"
-            git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+            exit 0
           fi
-
-      - name: logout registry
-        if: always()
-        run: docker logout ghcr.io
+          git commit -m "chore: update upstream SHA to $UPSTREAM_SHORT_SHA"
+          for attempt in 1 2 3; do
+            if git pull --rebase origin "$GITHUB_REF_NAME" && git push; then
+              exit 0
+            fi
+            echo "Push attempt $attempt failed; retrying..."
+            sleep $((attempt * 5))
+          done
+          echo "::error::Failed to push updated .last_upstream_sha after 3 attempts"
+          exit 1
