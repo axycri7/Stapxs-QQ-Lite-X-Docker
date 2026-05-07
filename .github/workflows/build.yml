@@ -104,6 +104,7 @@ jobs:
       - name: Update last upstream SHA
         if: env.BUILD == 'true'
         run: |
+          mkdir -p .this
           echo $CURRENT_SHA > .this/.last_upstream_sha
           cd .this
           git config user.name "github-actions[bot]"
