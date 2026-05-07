@@ -1,13 +1,10 @@
 .DS_Store
 .AppleDouble
 .LSOverride
-
 Thumbs.db
 ehthumbs.db
 Desktop.ini
 $RECYCLE.BIN/
-
-*~
 .nfs*
 
 .vscode/
@@ -16,6 +13,7 @@ $RECYCLE.BIN/
 *.sublime-project
 *.code-workspace
 .history/
+*.iml
 
 node_modules/
 bower_components/
@@ -27,57 +25,36 @@ public/build/
 
 *.log
 *.log.*
-*.tmp
-*.temp
-*.pid
-*.seed
-*.pid.lock
-*.cache
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+*.tmp
+*.temp
+*.pid
+*.pid.lock
 
 .env
-.env.*
 .env.local
 .env.*.local
 
 docker-compose.override.yml
-.dockerignore
+.trivy-cache/
+.snyk/
 
-*.sh~
-
-*.crt
-*.key
 *.pem
+*.key
+*.crt
+*.csr
+*.der
 
-*.pid
-*.pid.lock
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
 
 *.swp
 *.swo
 *~
-.DS_Store
 
-.trivy-cache/
-.snyk/
-*.swo
-*.DS_Store
-.idea/
-
-*.iml
-*.class
-*.exe
-*.dll
-*.pyc
-*.pyo
-*.pyd
-__pycache__/
-*.sqlite3
-
-*.pem
-*.key
-*.csr
-*.der
-*.crt
