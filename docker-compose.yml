@@ -2,9 +2,7 @@ version: '3.8'
 
 services:
   stapxs-qq-lite-x:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/axycri7/stapxs-qq-lite-x-docker:latest
     container_name: stapxs-qq-lite-x
     ports:
       - "80:80"

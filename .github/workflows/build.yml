@@ -144,7 +144,6 @@ jobs:
         continue-on-error: true
         run: |
           cd .this
-          docker pull ghcr.io/axycri7/stapxs-qq-lite-x-docker:latest
           docker compose up -d
           sleep 15
           bash ./test-ssl-renewal.sh stapxs-qq-lite-x || true
